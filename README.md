@@ -1,27 +1,16 @@
-Title: ym2149-test
+ZX Spectrum AY ports
+--------------------
 
-The ym2149-test is a little firmware to check that the [YM2149 &
-Arduino circuit][2] is working properly.
+The AY-3-8912 sound chip is a widely used one, to be found in the MSX, Vectrex, Amstrad CPC range, etc. It is controlled by two I/O ports:
+OUT (0xfffd)   - Select a register 0-14
+IN  (0xfffd)   - Read the value of the selected register
+OUT (0xbffd)   - Write to the selected register
 
-Requirements
-------------
-
-The following libraries are required:
-
-* avr-gcc
-* avr-libc
-* avrdude
-
-How to test the circuit
------------------------
-
-    $ make
-    $ make flash
 
 More information
 ----------------
 
-More information can be found on my blog:
+More information can be found on the blog:
 
 * [Driving YM2149F sound chip with an Arduino][2]
 * [Arduino Hello World without IDE][3]

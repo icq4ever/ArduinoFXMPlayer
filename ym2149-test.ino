@@ -1,5 +1,6 @@
 #include <util/delay.h>
 #include "ym2149.h"
+#include "Z80.h"
 
 // Notes
 // Np = 2e6 / (16 * Fn)
@@ -11,17 +12,24 @@
 #define A (2000000 / (16*220.00))
 #define B (2000000 / (16*246.94))
 
-int main() {
-  unsigned int i;
-  unsigned int data[7] = {C, D, E, F, G, A, B};
-
+void setup()
+{
   set_ym_clock();
   set_bus_ctl();
 
   // reset registers
-  for (i=0; i<16; i++) {
+  for (int i=0; i<16; i++) {
     send_data(i, 0);
   }
+}
+
+void loop()
+{
+  unsigned int i;
+  unsigned int data[7] = {C, D, E, F, G, A, B};
+
+  Z80 z80;
+
   send_data(7, 0xf8); // Only output clear sound
   send_data(8, 0x0f);
   send_data(9, 0x0f);
@@ -37,7 +45,7 @@ int main() {
       send_data(5, data[i] >> 10);
       _delay_ms(200.);
     }
-  }
 
-  return 0;
+    z80.run(1);
+  }
 }

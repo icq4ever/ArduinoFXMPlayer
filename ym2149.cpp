@@ -1,5 +1,8 @@
 #include "ym2149.h"
 
+#include <util/delay.h>
+#include <avr/io.h>
+
 // MSB (PB3) is connected to BDIR
 // LSB (PB2) is connected to BC1
 // +5V is connected to BC2
@@ -9,7 +12,9 @@
 
 // Sets a 4MHz clock OC2A (PORTB3)
 void set_ym_clock(void) {
+  // PB3 - output
   DDRB |= 0x01 << PORTB3;
+  /*
   // Toggle OC2A on compare match
   TCCR2A &= ~(0x01 << COM2A1);
   TCCR2A |=   0x01 << COM2A0;
@@ -21,6 +26,25 @@ void set_ym_clock(void) {
   TCCR2B &= ~(0x01 << WGM22);
   TCCR2B &= ~(0x01 << WGM21);
   TCCR2B |=   0x01 << WGM20;
+*/  
+  // Set Timer 2 CTC mode with no prescaling. OC2A toggles on compare match
+  //
+  // WGM22:0 = 010: CTC Mode, toggle OC
+  // WGM2 bits 1 and 0 are in TCCR2A,
+  // WGM2 bit 2 is in TCCR2B
+  // COM2A0 sets OC2A (arduino pin 11 on Uno or Duemilanove) to toggle on compare match
+  //
+  TCCR2A = ((1 << WGM21) | (1 << COM2A0));
+  
+  // Set Timer 2 No prescaling (i.e. prescale division = 1)
+  //
+  // CS22:0 = 001: Use CPU clock with no prescaling
+  // CS2 bits 2:0 are all in TCCR2B
+  TCCR2B = (1 << CS20);
+  
+  // Make sure Compare-match register A interrupt for timer2 is disabled
+  TIMSK2 = 0;
+
   // Divide the 16MHz clock by 8 -> 2MHz
   OCR2A = 3;
 }
@@ -28,10 +52,12 @@ void set_ym_clock(void) {
 void set_bus_ctl(void) {
   DDRC |= 0x0c; // Bits 2 and 3
 }
+
 void set_data_out(void) {
   DDRC |= 0x03; // Bits 0 and 1
   DDRD |= 0xfc; // Bits 2 to 7
 }
+
 void set_data_in(void) {
   DDRC &= ~0x03; // Bits 0 and 1
   DDRD &= ~0xfc; // Bits 2 to 7
