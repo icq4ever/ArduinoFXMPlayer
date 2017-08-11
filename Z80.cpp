@@ -1,3 +1,4 @@
+#pragma GCC optimize ("-O3")
 /*	Copyright  (c)	Günter Woigk 1996 - 2015
 					mailto:kio@little-bat.de
 

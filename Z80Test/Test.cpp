@@ -1,3 +1,4 @@
+#ifdef TESTING
 #include <stdio.h>
 #include <stdlib.h>
 #include "Z80.h"
@@ -134,3 +135,4 @@ int main(int argc, char **argv)
     printf("-0x10000\n");
     printf("ROM: %d\nRAM: %d\n", rom, ram);
 }
+#endif

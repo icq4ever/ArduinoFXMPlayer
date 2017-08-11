@@ -433,12 +433,3 @@
 	INPUT(BC,R);								\
 	rf	= (rf&C_FLAG) + zlog_flags[R]
 
-
-
-
-
-
-
-
-
-
