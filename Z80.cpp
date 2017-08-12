@@ -114,17 +114,16 @@ void Z80::reset_registers()
 //							helpers
 // ======================================================================
 
-
-static uint16 peek2( uint16 addr )
+uint16 peek2( uint16 addr )
 {
-	return peek(addr) + (peek(addr+1)<<8);
-//	return uint16(peek(addr)) + uint16(uint16(peek(addr+1))<<8);
+  return peek(addr) + (peek(addr+1)<<8);
+//  return uint16(peek(addr)) + uint16(uint16(peek(addr+1))<<8);
 }
 
-static void poke2 ( uint16 addr, uint16 n )
+void poke2 ( uint16 addr, uint16 n )
 {
-	poke( addr,   uint8(n) );
-	poke( addr+1, uint8(n>>8) );
+  poke( addr,   uint8(n) );
+  poke( addr+1, uint8(n>>8) );
 }
 
 uint16 Z80::pop2 ( )

@@ -67,6 +67,8 @@ void poke(uint16 addr, uint8 c);
 void handle_output(uint a, uint b);
 uint handle_input(uint a);
 
+uint16 peek2( uint16 addr );
+void poke2 ( uint16 addr, uint16 n );
 
 // ----	z80 registers ----
 

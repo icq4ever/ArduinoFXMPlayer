@@ -45,7 +45,8 @@ uint8 peek(uint16 addr)
 
 void poke(uint16 addr, uint8 c)
 {
-//    printf("[%x] <- %x\n", addr, c);
+//    printf("%x: [%x] <- %x\n", z80.registers.pc, addr, c);
+    printf("%X %X\n", addr, c);
     mem[addr] = c;
     memtype[addr] = 2;
 }
@@ -105,10 +106,10 @@ int main(int argc, char **argv)
 
     z80.registers.pc = 0;
     z80.registers.sp = 0x0;
-    int count = 10000000;
+    int count = 1000000;
     while (count)
     {
-        count -= z80.run(count);
+        count -= z80.run(1);
         if (z80.halt)
         {
             z80.halt = 0;
