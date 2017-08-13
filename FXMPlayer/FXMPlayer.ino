@@ -412,811 +412,287 @@ const uint8_t rom[] PROGMEM = {
 
 };
 
-typedef unsigned char uint8;
-typedef unsigned short uint16;
-typedef unsigned int uint32;
-typedef unsigned int uint;
-typedef signed char int8;
-typedef signed short int16;
-typedef signed int int32;
-
-struct RAMItem
-{
-  uint16 addr;
-  uint8 val;
-};
-
-RAMItem ram[256];
-uint8 ramsize;
-
 void setup()
 {
   set_ym_clock();
   set_bus_ctl();
-
-  // reset registers
-  //for (int i=0; i<16; i++) {
-  //  send_data(i, 0);
-  //}
-  Serial.begin(9600);
 }
 
-uint8 peek(uint16 addr)
+static uint8_t peek(uint16_t addr)
 {
-    uint8 res = 0;
+    uint8_t res = 0;
     if (addr >= ROM_ADDR && addr < ROM_ADDR + sizeof(rom))
     {
       res = pgm_read_byte(rom + addr - ROM_ADDR);
     }
-    for (int i = 0 ; i < ramsize ; ++i)
-      if (ram[i].addr == addr)
-      {
-        res = ram[i].val;
-        break;
-      }
-//    Serial.print(addr, HEX);
-//    Serial.print(" ");
-//    Serial.println(res, HEX);
     return res;
 }
 
-void poke(uint16 addr, uint8 c)
-{
-//    Serial.print(addr, HEX);
-//    Serial.print(" ");
-//    Serial.println(c, HEX);
-  for (int i = 0 ; i < ramsize ; ++i)
-    if (ram[i].addr == addr)
-    {
-      ram[i].val = c;
-      return;
-    }
-  ram[ramsize].addr = addr;
-  ram[ramsize].val = c;
-  ++ramsize;
-}
-
-uint16 peek2( uint16 addr )
+static uint16_t peek2( uint16_t addr )
 {
   return peek(addr) + (peek(addr+1)<<8);
 //  return uint16(peek(addr)) + uint16(uint16(peek(addr+1))<<8);
 }
 
-void poke2 ( uint16 addr, uint16 n )
-{
-  poke( addr,   uint8(n) );
-  poke( addr+1, uint8(n>>8) );
-}
-/*
-void handle_output(uint a, uint b)
-{
-//OUT (0xfffd)   - Select a register 0-14
-//IN  (0xfffd)   - Read the value of the selected register
-//OUT (0xbffd)   - Write to the selected register
-    static uint8 reg;
-    if (a == 0xfffd)
-      reg = b;
-    else if (a == 0xbffd)
-      send_data(reg, b);
-}
-
-uint handle_input(uint a)
-{
-  uint8 b = 0xff;
-//    printf("IN %x\n", a);
-  return b;
-}
-*/
-/*
-void emulate()
-{
-  Z80 z80;
-  z80.registers.pc = 0;
-  Sp = 0;
-
-  for(;;) {
-    if (z80.halt)
-    {
-      z80.halt = 0;
-      ++z80.registers.pc;
-    }
-    //_delay_ms(20.);
-    z80.run(1000000);
-  }
-}
-*/
-
-union Channel
-{
-  uint8 nn[0x14];
-  struct
-  {
-    uint16 script;
-    uint8 f2;
-    uint8 f3;
-    uint16 f4;
-    uint8 f6;
-    uint16 f7;
-    uint8 f9;
-    uint16 fa;
-    uint16 fc;
-    uint8 fe;
-    uint8 ff;
-    uint16 f10;
-    uint8 f12;
-    uint8 f13;
-  };
-};
-
-static uint8 ayregs[14] = {0x4E, 0xA, 0xDD, 0x46, 0xB, 0xA, 0xDD, 0x77, 0x9, 0x3, 0xA, 0x3, 0xDD, 0x77};
-static Channel channels[3] = {
-  { .nn = {0x73, 0, 0xDD, 0x72, 0x01, 0xC3, 0x5B, 0xC8, 0x7E, 0x23, 0x32, 0x90, 0xC5, 0xCD, 0x54, 0xC8, 0xC3, 0x5B, 0xC8, 0x7E} },
-  { .nn = {0x23, 0xCD, 0x54, 0xC8, 0xdd, 0x77, 0x3, 0xC3, 0x5B, 0xC8, 0x7E, 0xDD, 0x77, 0xA, 0x23, 0x7E, 0xDD, 0x77, 0xB, 0x23} },
-  { .nn = {0xCD, 0x54, 0xC8, 0xC3, 0x5b, 0xC8, 0x7E, 0x23, 0xCD, 0x54, 0xC8, 0xDD, 0x77, 0xF, 0xC3, 0x5B, 0xC8, 0xE1, 0xCD, 0x54} }
-};
-
-static uint8_t noise_freq;
-
-static uint8 A, B;
-static uint16 HL, DE, BC, Sp;
-
-void z80_init()
-{
-//ROM:C85F                 ld      hl, (word_CD0F)
-//ROM:C862                 ld      (byte_C93A), hl
-  channels[0].script = peek2(0xcd0f);
-//ROM:C865                 ld      hl, (word_CD11)
-//ROM:C868                 ld      (byte_C93A+14h), hl
-  channels[1].script = peek2(0xcd11);
-//ROM:C86B                 ld      hl, (word_CD13)
-//ROM:C86E                 ld      (unk_C962), hl
-  channels[2].script = peek2(0xcd13);
-//ROM:C871                 ld      a, 1
-//ROM:C873                 ld      (byte_C93A+2), a
-//ROM:C876                 ld      (byte_C93A+16h), a
-//ROM:C879                 ld      (unk_C964), a
-  channels[0].f2 = 1;
-  channels[1].f2 = 1;
-  channels[2].f2 = 1;
-//ROM:C87C                 ld      a, 8
-//ROM:C87E                 ld      (byte_C93A+3), a
-//ROM:C881                 ld      (byte_C93A+17h), a
-//ROM:C884                 ld      (unk_C965), a
-  channels[0].f3 = 8;
-  channels[1].f3 = 8;
-  channels[2].f3 = 8;
-//ROM:C887                 ld      hl, byte_C8FA
-//ROM:C88A                 ld      de, 20h ; ' '
-//ROM:C88D                 ld      (stack1), hl
-  poke2(0xC8D4, 0xc8fa);
-//ROM:C890                 add     hl, de
-//ROM:C891                 ld      (stack2), hl
-  poke2(0xC8D6, 0xc8fa + 0x20);
-//ROM:C894                 add     hl, de
-//ROM:C895                 ld      (stack3), hl
-  poke2(0xC8D8, 0xc8fa + 0x40);
-//ROM:C898                 ld      hl, 0
-//ROM:C89B                 ld      (byte_C93A+0Eh), hl
-//ROM:C89E                 ld      (unk_C95C), hl
-//ROM:C8A1                 ld      (unk_C970), hl
-  channels[0].fe = 0;
-  channels[1].fe = 0;
-  channels[2].fe = 0;
-  channels[0].ff = 0;
-  channels[1].ff = 0;
-  channels[2].ff = 0;
-//ROM:C8A4                 ld      (byte_C93A+10h), hl
-//ROM:C8A7                 ld      (unk_C95E), hl
-//ROM:C8AA                 ld      (unk_C972), hl
-  channels[0].f10 = 0;
-  channels[1].f10 = 0;
-  channels[2].f10 = 0;
-//ROM:C8AD                 xor     a
-//ROM:C8AE                 ld      (byte_C8CE), a
-  noise_freq = 0;
-}
-
-void z80_write_ay_reg(uint8 reg, uint8 val)
+static uint8_t ayregs[14] = {0x4E, 0xA, 0xDD, 0x46, 0xB, 0xA, 0xDD, 0x77, 0x9, 0x3, 0xA, 0x3, 0xDD, 0x77};
+static void z80_write_ay_reg(uint8_t reg, uint8_t val)
 {
   ayregs[reg] = val;
 }
 
-void z80_sub_ca8a(int ch)
+static uint16_t FXM_Table[] = {
+  0xfbf, 0xedc, 0xe07, 0xd3d, 0xc7f, 0xbcc, 0xb22, 0xa82, 0x9eb, 0x95d, 0x8d6, 0x857, 0x7df, 0x76e, 0x703,
+  0x69f, 0x640, 0x5e6, 0x591, 0x541, 0x4f6, 0x4ae, 0x46b, 0x42c, 0x3f0, 0x3b7, 0x382, 0x34f, 0x320, 0x2f3,
+  0x2c8, 0x2a1, 0x27b, 0x257, 0x236, 0x216, 0x1f8, 0x1dc, 0x1c1, 0x1a8, 0x190, 0x179, 0x164, 0x150, 0x13d,
+  0x12c, 0x11b, 0x10b, 0xfc, 0xee, 0xe0, 0xd4, 0xc8, 0xbd, 0xb2, 0xa8, 0x9f, 0x96, 0x8d, 0x85, 0x7e, 0x77, 0x70,
+  0x6a, 0x64, 0x5e, 0x59, 0x54, 0x4f, 0x4b, 0x47, 0x43, 0x3f, 0x3b, 0x38, 0x35, 0x32, 0x2f, 0x2d, 0x2a, 0x28, 0x25,
+  0x23, 0x21
+};
+
+struct FXMChannel
 {
-//ROM:CA8A                 ld      (spSaved), sp
-//ROM:CA8E                 ld      sp, hl
-  Sp = HL;
-//ROM:CA8F                 ld      (byte_C8CF), a
-//ROM:CA92                 dec     (ix+2)
-  --channels[ch].f2;
-//ROM:CA95                 jp      z, loc_CB99
-  if (!channels[ch].f2)
+  uint8_t id;
+  uint16_t address_in_pattern;
+  uint16_t point_in_ornament;
+  uint16_t ornament_pointer;
+  uint16_t point_in_sample;
+  uint16_t sample_pointer;
+  uint8_t volume;
+  uint8_t sample_tick_counter;
+  uint8_t mixer;
+  int16_t note_skip_counter;
+  uint16_t tone;
+  uint8_t note;
+  uint8_t transposit;
+  uint8_t amplitude;
+  
+  bool b0e, b1e, b2e, b3e;
+
+  uint16_t stack[16];
+  uint8_t sp;
+};
+
+static uint8_t noise;
+static FXMChannel channels[3];
+
+static void fxm_init()
+{
+  for (int i = 0 ; i < 3 ; ++i)
   {
-loc_CB99:
-//ROM:CB99                 ld      l, (ix+0)
-//ROM:CB9C                 ld      h, (ix+1)
-    HL = channels[ch].script;
-//ROM:CB9F                 ld      a, (hl)
-    A = peek(HL);
-//ROM:CBA0                 inc     hl
-    ++HL;
-//ROM:CBA1                 call    PutHLInfoIXPtr
-    channels[ch].script = HL;
-//ROM:CBA4                 bit     7, a
-//ROM:CBA6                 jp      nz, loc_CC16
-    if (A & 0x80)
-    {
-//ROM:CC16                 and     7Fh ; ''
-      A &= 0x7f;
-//ROM:CC18                 ld      (spNew), hl
-//ROM:CC1B                 add     a, a
-//ROM:CC1C                 ld      e, a
-//ROM:CC1D                 ld      d, 0
-//ROM:CC1F                 ld      hl, unk_CC2C
-//ROM:CC22                 add     hl, de
-//ROM:CC23                 ld      a, (hl)
-//ROM:CC24                 inc     hl
-//ROM:CC25                 ld      h, (hl)
-//ROM:CC26                 ld      l, a
-//ROM:CC27                 push    hl
-//ROM:CC28                 ld      hl, (spNew)
-//ROM:CC2B                 ret
-      switch (A)
-      {
-      case 0: // goto offset
-//ROM:CC4A                 ld      a, (hl)
-//ROM:CC4B                 ld      (ix+0), a
-//ROM:CC4E                 inc     hl
-//ROM:CC4F                 ld      a, (hl)
-//ROM:CC50                 ld      (ix+1), a
-        channels[ch].script = peek2(HL);
-//ROM:CC53                 jp      loc_CB99
-        goto loc_CB99;
-      case 1: // call
-//ROM:CC56                 ld      a, (hl)
-//ROM:CC57                 ld      (ix+0), a
-//ROM:CC5A                 inc     hl
-//ROM:CC5B                 ld      a, (hl)
-//ROM:CC5C                 ld      (ix+1), a
-        channels[ch].script = peek2(HL);
-//ROM:CC5F                 inc     hl
-        HL += 2;
-//ROM:CC60                 push    hl
-        Sp -= 2;
-        poke2(Sp, HL);
-//ROM:CC61                 jp      loc_CB99
-        goto loc_CB99;
-      case 2: // push arg and script
-//ROM:CC64                 ld      b, (hl)
-        B = peek(HL);
-//ROM:CC65                 push    bc
-        Sp -= 2;
-        poke2(Sp, BC);
-//ROM:CC66                 inc     hl
-        ++HL;
-//ROM:CC67                 push    hl
-        Sp -= 2;
-        poke2(Sp, HL);
-//ROM:CC68                 call    PutHLInfoIXPtr
-        channels[ch].script = HL;
-//ROM:CC6B                 jp      loc_CB99
-        goto loc_CB99;
-      case 3: // pop arg and script, dec arg, push if not zero
-//ROM:CC6E                 pop     de
-        DE = peek2(Sp);
-        Sp += 2;
-//ROM:CC6F                 pop     bc
-        BC = peek2(Sp);
-        Sp += 2;
-//ROM:CC70                 djnz    loc_CC75
-        if (--B)
-          goto loc_CC75;
-//ROM:CC72                 jp      loc_CB99
-        goto loc_CB99;
-loc_CC75:
-//ROM:CC75                 push    bc
-        Sp -= 2;
-        poke2(Sp, BC);
-//ROM:CC76                 push    de
-        Sp -= 2;
-        poke2(Sp, DE);
-//ROM:CC77                 ld      (ix+0), e
-//ROM:CC7A                 ld      (ix+1), d
-        channels[ch].script = DE;
-//ROM:CC7D                 jp      loc_CB99
-        goto loc_CB99;
-      case 4: // set noise freq
-//ROM:CC80                 ld      a, (hl)
-        A = peek(HL);
-//ROM:CC81                 inc     hl
-        ++HL;
-//ROM:CC82                 ld      (byte_C8CE), a
-        noise_freq = A;
-//ROM:CC85                 call    PutHLInfoIXPtr
-        channels[ch].script = HL;
-//ROM:CC88                 jp      loc_CB99
-        goto loc_CB99;
-      case 5: // set field3
-//ROM:CC8B                 ld      a, (hl)
-        A = peek(HL);
-//ROM:CC8C                 inc     hl
-        ++HL;
-//ROM:CC8D                 call    PutHLInfoIXPtr
-        channels[ch].script = HL;
-//ROM:CC90                 ld      (ix+3), a
-        channels[ch].f3 = A;
-//ROM:CC93                 jp      loc_CB99
-        goto loc_CB99;
-      case 6: // set f10
-//ROM:CCB8                 ld      a, (hl)
-//ROM:CCB9                 ld      (ix+10h), a
-//ROM:CCBC                 inc     hl
-//ROM:CCBD                 ld      a, (hl)
-//ROM:CCBE                 ld      (ix+11h), a
-//ROM:CCC1                 inc     hl
-        channels[ch].f10 = peek2(HL);
-        HL += 2;
-//ROM:CCC2                 call    PutHLInfoIXPtr
-        channels[ch].script = HL;
-//ROM:CCC5                 jp      loc_CB99
-        goto loc_CB99;
-      case 7: // set field fa
-//ROM:CC96                 ld      a, (hl)
-//ROM:CC97                 ld      (ix+0Ah), a
-//ROM:CC9A                 inc     hl
-//ROM:CC9B                 ld      a, (hl)
-//ROM:CC9C                 ld      (ix+0Bh), a
-//ROM:CC9F                 inc     hl
-        channels[ch].fa = peek2(HL);
-        HL += 2;
-//ROM:CCA0                 call    PutHLInfoIXPtr
-        channels[ch].script = HL;
-//ROM:CCA3                 jp      loc_CB99
-        goto loc_CB99;
-/*
-      case 8: // set field ff // not used
-//ROM:CCA6                 ld      a, (hl)
-        A = peek(HL);
-//ROM:CCA7                 inc     hl
-        ++HL;
-//ROM:CCA8                 call    PutHLInfoIXPtr
-        channels[ch].script = HL;
-//ROM:CCAB                 ld      (ix+0Fh), a
-        channels[ch].ff = A;
-//ROM:CCAE                 jp      loc_CB99
-        goto loc_CB99;
-*/
-      case 9: // ret
-//ROM:CCB1                 pop     hl
-        HL = peek2(Sp);
-        Sp += 2;
-//ROM:CCB2                 call    PutHLInfoIXPtr
-        channels[ch].script = HL;
-//ROM:CCB5                 jp      loc_CB99
-        goto loc_CB99;
-      case 10: // set fe.0, reset fe.1
-//ROM:CCC8                 set     0, (ix+0Eh)
-//ROM:CCCC                 res     1, (ix+0Eh)
-        channels[ch].fe = (channels[ch].fe & ~2) | 1;
-//ROM:CCD0                 call    PutHLInfoIXPtr
-        channels[ch].script = HL;
-//ROM:CCD3                 jp      loc_CB99
-        goto loc_CB99;
-      case 11: // reset fe.0, reset fe.1
-//ROM:CCD6                 res     0, (ix+0Eh)
-//ROM:CCDA                 res     1, (ix+0Eh)
-        channels[ch].fe = channels[ch].fe & ~3;
-//ROM:CCDE                 call    PutHLInfoIXPtr
-        channels[ch].script = HL;
-//ROM:CCE1                 jp      loc_CB99
-        goto loc_CB99;
-/*
-      case 12: // switch // not used
-//ROM:CCE4                 ld      e, (hl)
-//ROM:CCE5                 inc     hl
-//ROM:CCE6                 ld      d, (hl)
-//ROM:CCE7                 inc     hl
-        DE = peek2(HL);
-        HL += 2;
-//ROM:CCE8                 call    PutHLInfoIXPtr
-        channels[ch].script = HL;
-//ROM:CCEB                 ld      bc, loc_CB99
-//ROM:CCEE                 push    bc
-//ROM:CCEF                 push    de
-//ROM:CCF0                 ret
-        // TODO
-        goto loc_CB99;
-*/
-      case 13: // increase noise_freq
-//ROM:CCF1                 ld      a, (byte_C8CE)
-//ROM:CCF4                 add     a, (hl)
-//ROM:CCF5                 and     1Fh
-        A = (noise_freq + peek(HL)) & 0x1f;
-//ROM:CCF7                 ld      (byte_C8CE), a
-        noise_freq = A;
-//ROM:CCFA                 inc     hl
-        ++HL;
-//ROM:CCFB                 call    PutHLInfoIXPtr
-        channels[ch].script = HL;
-//ROM:CCFE                 jp      loc_CB99
-        goto loc_CB99;
-/*
-      case 14: // inc ff field // not used
-//ROM:CD01                 ld      a, (hl)
-//ROM:CD02                 add     a, (ix+0Fh)
-//ROM:CD05                 ld      (ix+0Fh), a
-        channels[ch].ff += peek(HL);
-//ROM:CD08                 inc     hl
-        ++HL;
-//ROM:CD09                 call    PutHLInfoIXPtr
-        channels[ch].script = HL;
-//ROM:CD0C                 jp      loc_CB99
-        goto loc_CB99;
-*/
-      }
-    }
-//ROM:CBA9                 ld      (spNew), hl
-//ROM:CBAC                 or      a
-//ROM:CBAD                 jr      z, loc_CBCA
-    if (A)
-    {
-//ROM:CBAF                 add     a, (ix+0Fh)
-      A += channels[ch].ff;
-//ROM:CBB2                 ld      (ix+12h), a
-      channels[ch].f12 = A;
-//ROM:CBB5                 res     3, (ix+0Eh)
-      channels[ch].fe &= ~8;
-//ROM:CBB9                 dec     a
-//ROM:CBBA                 add     a, a
-//ROM:CBBB                 ld      e, a
-//ROM:CBBC                 ld      d, 0
-//ROM:CBBE                 ld      hl, 0C976h
-//ROM:CBC1                 add     hl, de
-//ROM:CBC2                 ld      e, (hl)
-//ROM:CBC3                 inc     hl
-//ROM:CBC4                 ld      d, (hl)
-      DE = peek2(0xc976 + 2 * (A - 1));
-//ROM:CBC5                 ld      hl, (spNew)
-//ROM:CBC8                 jr      loc_CBCD
-    }
-    else
-    {
-//ROM:CBCA loc_CBCA:                               ; CODE XREF: PlayChannel+123j
-//ROM:CBCA                 ld      de, 0
-      DE = 0;
-    }
-//ROMCBCD loc_CBCD:                               ; CODE XREF: PlayChannel+13Ej
-//ROM:CBCD                 ld      a, (hl)
-    A = peek(HL);
-//ROM:CBCE                 inc     hl
-    ++HL;
-//ROM:CBCF                 call    PutHLInfoIXPtr
-    channels[ch].script = HL;
-//ROM:CBD2                 ld      (ix+2), a
-    channels[ch].f2 = A;
-//ROM:CBD5                 ld      (ix+7), e
-//ROM:CBD8                 ld      (ix+8), d
-    channels[ch].f7 = DE;
-//ROM:CBDB                 ld      a, (ix+10h)
-//ROM:CBDE                 ld      (ix+0Ch), a
-//ROM:CBE1                 ld      a, (ix+11h)
-//ROM:CBE4                 ld      (ix+0Dh), a
-    channels[ch].fc = channels[ch].f10;
-//ROM:CBE7                 set     2, (ix+0Eh)
-    channels[ch].fe |= 4;
-//ROM:CBEB                 bit     1, (ix+0Eh)
-//ROM:CBEF                 jp      nz, loc_CA98
-    if (!(channels[ch].fe & 2))
-    {
-//ROM:CBF2                 bit     0, (ix+0Eh)
-//ROM:CBF6                 jp      z, loc_CBFD
-//ROM:CBF9                 set     1, (ix+0Eh)
-      if (channels[ch].fe & 1)
-      {
-        channels[ch].fe | 2;
-      }
-//ROM:CBFD                 ld      c, (ix+0Ah)
-//ROM:CC00                 ld      b, (ix+0Bh)
-      BC = channels[ch].fa;
-//ROM:CC03                 ld      a, (bc)
-      A = peek(BC);
-//ROM:CC04                 ld      (ix+9), a
-      channels[ch].f9 = A;
-//ROM:CC07                 inc     bc
-      ++BC;
-//ROM:CC08                 ld      a, (bc)
-      A = peek(BC);
-//ROM:CC09                 inc     bc
-      ++BC;
-//ROM:CC0A                 ld      (ix+6), a
-      channels[ch].f6 = A;
-//ROM:CC0D                 ld      (ix+4), c
-//ROM:CC10                 ld      (ix+5), b
-      channels[ch].f4 = BC;
-//ROM:CC13                 jp      loc_CB5C
-      goto loc_CB5C;
-    }
+    channels[i].note_skip_counter = 1;
+    channels[i].mixer = 8;
+    channels[i].id = i;
   }
-//ROM:CA98 loc_CA98:                               ; CODE XREF: PlayChannel+165j
-loc_CA98:
-//ROM:CA98                 dec     (ix+6)
-  --channels[ch].f6;
-//ROM:CA9B                 jr      nz, loc_CAD3
-  if (channels[ch].f6)
-    goto loc_CAD3;
-//ROM:CA9D
-//ROM:CA9D loc_CA9D:                               ; CODE XREF: PlayChannel+28j
-loc_CA9D:
-//ROM:CA9D                 ld      l, (ix+4)
-//ROM:CAA0                 ld      h, (ix+5)
-  HL = channels[ch].f4;
-//ROM:CAA3                 ld      a, (hl)
-  A = peek(HL);
-//ROM:CAA4                 cp      80h ; 'À'
-  if (A != 0x80)
-  {
-//ROM:CAB4                 cp      1Eh
-//ROM:CAB6                 jr      c, loc_CAC4
-    if (A < 0x1e)
-    {
-//ROM:CAC4 loc_CAC4:                               ; CODE XREF: PlayChannel+2Cj
-//ROM:CAC4                 ld      (ix+9), a
-      channels[ch].f9 = A;
-//ROM:CAC7                 inc     hl
-      ++HL;
-//ROM:CAC8                 ld      a, (hl)
-      A = peek(HL);
-//ROM:CAC9                 ld      (ix+6), a
-      channels[ch].f6 = A;
-//ROM:CACC                 inc     hl
-      ++HL;
-//ROM:CACD
-//ROM:CACD loc_CACD:                               ; CODE XREF: PlayChannel+38j
-loc_CACD:
-//ROM:CACD                 ld      (ix+4), l
-//ROM:CAD0                 ld      (ix+5), h
-      channels[ch].f4 = HL;
-//ROM:CAD3
-//ROM:CAD3 loc_CAD3:                               ; CODE XREF: PlayChannel+11j
-loc_CAD3:
-//ROM:CAD3                 ld      a, (ix+7)
-//ROM:CAD6                 or      (ix+8)
-//ROM:CAD9                 jp      z, loc_CB5C
-      if (!channels[ch].f7)
-        goto loc_CB5C;
-//ROM:CADC                 bit     2, (ix+0Eh)
-//ROM:CAE0                 jp      nz, loc_CB5C
-      if (channels[ch].fe & 0x4)
-        goto loc_CB5C;
-//ROM:CAE3                 ld      l, (ix+0Ch)
-//ROM:CAE6                 ld      h, (ix+0Dh)
-      HL = channels[ch].fc;
-//ROM:CAE9
-//ROM:CAE9 loc_CAE9:                               ; CODE XREF: PlayChannel+6Fj
-//ROM:CAE9                                         ; PlayChannel+7Aj
-//ROM:CAE9                                         ; PlayChannel+86j
-//ROM:CAE9                                         ; PlayChannel+96j
-loc_CAE9:
-//ROM:CAE9                 ld      a, (hl)
-      A = peek(HL);
-//ROM:CAEA                 inc     hl
-      ++HL;
-//ROM:CAEB                 ld      (ix+0Ch), l
-//ROM:CAEE                 ld      (ix+0Dh), h
-      channels[ch].fc = HL;
-//ROM:CAF1                 cp      80h ; 'À'
-//ROM:CAF3                 jr      nz, loc_CAFB
-      if (A != 0x80)
-      {
-//ROM:CAFB                 cp      82h ; 'Â'
-//ROM:CAFD                 jp      nz, loc_CB07
-        if (A != 0x82)
-        {
-//ROM:CB07                 cp      83h ; 'Ã'
-//ROM:CB09                 jp      nz, loc_CB13
-          if (A != 0x83)
-          {
-//ROM:CB13                 cp      84h ; 'Ä'
-//ROM:CB15                 jp      nz, loc_CB23
-            if (A != 0x84)
-            {
-//ROM:CB23                 bit     3, (ix+0Eh)
-//ROM:CB27                 jp      z, loc_CB45
-              if (!(channels[ch].fe & 8))
-              {
-//ROM:CB45                 ld      e, a
-//ROM:CB46                 ld      d, 0
-//ROM:CB48                 ld      l, (ix+7)
-//ROM:CB4B                 ld      h, (ix+8)
-//ROM:CB4E                 and     80h ; 'À'
-//ROM:CB50                 jp      z, loc_CB55
-//ROM:CB53                 ld      d, 0FFh
-//ROM:CB55                 add     hl, de
-                DE = (int8)A;
-                HL = channels[ch].f7 + DE;
-//ROM:CB56                 ld      (ix+7), l
-//ROM:CB59                 ld      (ix+8), h
-                channels[ch].f7 = HL;
-//ROM:CB5C
-                goto loc_CB5C;
-              }
-//ROM:CB2A                 add     a, (ix+12h)
-              A += channels[ch].f12;
-//ROM:CB2D                 ld      (ix+12h), a
-              channels[ch].f12 = A;
-//ROM:CB30                 dec     a
-              --A;
-//ROM:CB31                 add     a, a
-              A *= 2;
-//ROM:CB32                 ld      e, a
-//ROM:CB33                 ld      d, 0
-              DE = A;
-//ROM:CB35                 ld      hl, 0C976h
-              HL = 0xc976;
-//ROM:CB38                 add     hl, de
-              HL += DE;
-//ROM:CB39                 ld      a, (hl)
-//ROM:CB3A                 ld      (ix+7), a
-//ROM:CB3D                 inc     hl
-//ROM:CB3E                 ld      a, (hl)
-//ROM:CB3F                 ld      (ix+8), a
-              channels[ch].f7 = peek2(HL);
-              ++HL;
-//ROM:CB42                 jp      loc_CB5C
-              goto loc_CB5C;
-            }
-//ROM:CB18                 ld      a, 9
-//ROM:CB1A                 xor     (ix+3)
-//ROM:CB1D                 ld      (ix+3), a
-            channels[ch].f3 ^= 9;
-//ROM:CB20                 jp      loc_CAE9
-            goto loc_CAE9;
-          }
-//ROM:CB0C                 res     3, (ix+0Eh)
-          channels[ch].fe &= ~8;
-//ROM:CB10                 jp      loc_CAE9
-          goto loc_CAE9;
-        }
-//ROM:CB00                 set     3, (ix+0Eh)
-        channels[ch].fe |= 8;
-//ROM:CB04                 jp      loc_CAE9
-        goto loc_CAE9;
-      }
-//ROM:CAF5                 ld      a, (hl)
-//ROM:CAF6                 inc     hl
-//ROM:CAF7                 ld      h, (hl)
-//ROM:CAF8                 ld      l, a
-      HL = peek2(HL);
-//ROM:CAF9                 jr      loc_CAE9
-      goto loc_CAE9;
-    }
-//ROM:CAB8                 sub     32h ; '2'
-    A -= 0x32;
-//ROM:CABA                 ld      (ix+9), a
-    channels[ch].f9 = A;
-//ROM:CABD                 ld      (ix+6), 1
-    channels[ch].f6 = 1;
-//ROM:CAC1                 inc     hl
-    ++HL;
-//ROM:CAC2                 jr      loc_CACD
-    goto loc_CACD;
-  }
-//ROM:CAA6                 jr      nz, loc_CAB4
-//ROM:CAA8                 inc     hl
-  ++HL;
-//ROM:CAA9                 ld      e, (hl)
-  DE = peek2(HL);
-//ROM:CAAA                 inc     hl
-  ++HL;
-//ROM:CAAB                 ld      d, (hl)
-//ROM:CAAC                 ld      (ix+4), e
-//ROM:CAAF                 ld      (ix+5), d
-  channels[ch].f4 = DE;
-//ROM:CAB2                 jr      loc_CA9D
-  goto loc_CA9D;
-loc_CB5C:
-//ROM:CB5C                 ld      a, (byte_C8CE)
-//ROM:CB5F                 ld      d, 6
-//ROM:CB61                 call    WriteAYReg
-  // noise frequency
-  z80_write_ay_reg(6, noise_freq);
-//ROM:CB64                 res     2, (ix+0Eh)
-  channels[ch].fe &= ~4;
-//ROM:CB68                 ld      a, (byte_C8CF)
-//ROM:CB6B                 add     a, 7
-//ROM:CB6D                 ld      d, a
-//ROM:CB6E                 ld      a, (ix+7)
-//ROM:CB71                 or      (ix+8)
-//ROM:CB74                 jr      z, loc_CB79
-//ROM:CB76                 ld      a, (ix+9)
-  if (channels[ch].f7)
-    A = channels[ch].f9;
-  else
-    A = 0;
-//ROM:CB79                 call    WriteAYReg
-  z80_write_ay_reg(ch + 1 + 7, A);
-//ROM:CB7C                 ld      a, (byte_C8CF)
-//ROM:CB7F                 dec     a
-//ROM:CB80                 add     a, a
-//ROM:CB81                 ld      d, a
-//ROM:CB82                 ld      a, (ix+7)
-//ROM:CB85                 call    WriteAYReg
-  z80_write_ay_reg(2 * (ch + 1 - 1), channels[ch].f7);
-//ROM:CB88                 inc     d
-//ROM:CB89                 ld      a, (ix+8)
-//ROM:CB8C                 call    WriteAYReg
-  z80_write_ay_reg(2 * (ch + 1 - 1) + 1, channels[ch].f7 >> 8);
-//ROM:CB8F                 jp      restoreSpandRet
-//ROM:CA7E                 ld      (spNew), sp
-//ROM:CA82                 ld      hl, (spNew)
-  HL = Sp;
-//ROM:CA85                 ld      sp, (spSaved)
+  channels[0].address_in_pattern = 0xCD15;
+  channels[1].address_in_pattern = 0xD066;
+  channels[2].address_in_pattern = 0xD0CA;
 }
 
-void z80_int()
+static void fxm_play_channel(struct FXMChannel *ch)
 {
-//ROM:CA1E                 ld      ix, word_C93A
-//ROM:CA22                 ld      hl, (word_C8D4)
-  HL = peek2(0xc8d4);
-//ROM:CA25                 ld      a, 1
-//ROM:CA27                 call    sub_CA8A
-  z80_sub_ca8a(0);
-//ROM:CA2A                 ld      (word_C8D4), hl
-  poke2(0xc8d4, HL);
-//ROM:CA2D                 ld      ix, word_C94E
-//ROM:CA31                 ld      hl, (word_C8D6)
-  HL = peek2(0xc8d6);
-//ROM:CA34                 ld      a, 2
-//ROM:CA36                 call    sub_CA8A
-  z80_sub_ca8a(1);
-//ROM:CA39                 ld      (word_C8D6), hl
-  poke2(0xc8d6, HL);
-//ROM:CA3C                 ld      ix, word_C962
-//ROM:CA40                 ld      hl, (word_C8D8)
-  HL = peek2(0xc8d8);
-//ROM:CA43                 ld      a, 3
-//ROM:CA45                 call    sub_CA8A
-  z80_sub_ca8a(2);
-//ROM:CA48                 ld      (word_C8D8), hl
-  poke2(0xc8d8, HL);
-//ROM:CA4B                 ld      a, (byte_C965)
-  A = channels[2].f3;
-//ROM:CA4E                 rlca
-//ROM:CA4F                 ld      b, a
-  B = (A << 1) | ((A >> 7) & 1);
-//ROM:CA50                 ld      a, (byte_C951)
-//ROM:CA53                 or      b
-  A = channels[1].f3 | B;
-//ROM:CA54                 rlca
-//ROM:CA55                 ld      b, a
-  B = (A << 1) | ((A >> 7) & 1);
-//ROM:CA56                 ld      a, (byte_C93D)
-//ROM:CA59                 or      b
-//ROM:CA5A                 ld      d, 7
-//ROM:CA5C                 call    WriteAYReg
-  z80_write_ay_reg(7, channels[0].f3 | B);
-  for (int i = 13 ; i >= 0 ; --i)
+  if (!--ch->note_skip_counter)
   {
-    send_data(i, ayregs[i]);
-
-//    Serial.print(i, HEX);
-//    Serial.print(" ");
-//    Serial.println(ayregs[i], HEX);
+    while (true)
+    {
+      uint8_t v = peek(ch->address_in_pattern++);
+      switch (v)
+      {
+      case 0x80:
+        // jump
+        ch->address_in_pattern = peek2(ch->address_in_pattern);
+        break;
+      case 0x81:
+        // call
+        ch->stack[ch->sp++] = ch->address_in_pattern + 2;
+        ch->address_in_pattern = peek2(ch->address_in_pattern);
+        break;
+      case 0x82:
+        // loop begin
+        ch->stack[ch->sp++] = peek(ch->address_in_pattern++);
+        ch->stack[ch->sp++] = ch->address_in_pattern;
+        break;
+      case 0x83:
+        // loop
+        if (--ch->stack[ch->sp - 2] & 0xff)
+          ch->address_in_pattern = ch->stack[ch->sp - 1];
+        else
+          ch->sp -= 2;
+        break;
+      case 0x84:
+        // set noise
+        noise = peek(ch->address_in_pattern++);
+        break;
+      case 0x85:
+        // set mixer
+        ch->mixer = peek(ch->address_in_pattern++);
+        break;
+      case 0x86:
+        // set ornament
+        ch->ornament_pointer = peek2(ch->address_in_pattern);
+        ch->address_in_pattern += 2;
+        break;
+      case 0x87:
+        // set sample
+        ch->sample_pointer = peek2(ch->address_in_pattern);
+        ch->address_in_pattern += 2;
+        break;
+      case 0x88:
+        // transposition
+        ch->transposit = peek(ch->address_in_pattern++);
+        break;
+      case 0x89:
+        // return
+        ch->address_in_pattern = ch->stack[--ch->sp];
+        break;
+      case 0x8a:
+        // don't restart sample at new note
+        ch->b0e = true;
+        ch->b1e = false;
+        break;
+      case 0x8b:
+        // restart sample at new note
+        ch->b0e = false;
+        ch->b1e = false;
+        break;
+      case 0x8c:
+        // not implemented code call
+        ch->address_in_pattern += 2;
+        break;
+      case 0x8d:
+        // add to noise
+        noise = (noise + peek(ch->address_in_pattern++)) & 0x1f;
+        break;
+      case 0x8e:
+        // add transposition
+        ch->transposit += peek(ch->address_in_pattern++);
+        break;
+      case 0x8f:
+        // push transposition
+        ch->stack[ch->sp++] = ch->transposit;
+        break;
+      case 0x90:
+        // pop transposition
+        ch->transposit = ch->stack[--ch->sp];
+        break;
+      default:
+        if (v <= 0x54)
+        {
+          if (v)
+          {
+            ch->note = v + ch->transposit;
+            ch->tone = FXM_Table[ch->note - 1];
+            ch->b3e = false;
+          }
+          else
+          {
+            ch->tone = 0;
+          }
+          ch->note_skip_counter = peek(ch->address_in_pattern++);
+          ch->point_in_ornament = ch->ornament_pointer;
+          ch->b2e = true;
+          if (!ch->b1e)
+          {
+            ch->b1e = ch->b0e;
+            ch->point_in_sample = ch->sample_pointer;
+            ch->volume = peek(ch->point_in_sample++);
+            ch->sample_tick_counter = peek(ch->point_in_sample++);
+            goto ret;
+          }
+          else
+          {
+            goto decode_sample;
+          }
+          break;
+        }
+      }
+    }
   }
+
+decode_sample:
+  if (!--ch->sample_tick_counter)
+  {
+    while (true)
+    {
+      uint8_t s = peek(ch->point_in_sample++);
+      if (s == 0x80)
+      {
+        ch->point_in_sample = peek2(ch->point_in_sample);
+        continue;
+      }
+      else if (s < 0x1e)
+      {
+        ch->amplitude = s;
+        ch->sample_tick_counter = peek(ch->point_in_sample++);
+      }
+      else
+      {
+        s -= 0x32;
+        ch->amplitude = s;
+        ch->sample_tick_counter = 1;
+      }
+      break;
+    }
+  }
+  // decode ornament
+  if (ch->tone && !ch->b2e)
+  {
+    while (true)
+    {
+      uint8_t s = peek(ch->point_in_ornament++);
+      switch (s)
+      {
+      case 0x80:
+        ch->point_in_ornament = peek2(ch->point_in_ornament);
+        break;
+      case 0x82:
+        ch->b3e = true;
+        break;
+      case 0x83:
+        ch->b3e = false;
+        break;
+      case 0x84:
+        ch->mixer ^= 9;
+        break;
+      default:
+        if (!ch->b3e)
+        {
+          ch->tone += (int8_t)s;
+        }
+        else
+        {
+          ch->note += s;
+          ch->tone = FXM_Table[ch->note - 1];
+        }
+        goto ret;
+      }
+    }
+  }
+ret:
+  z80_write_ay_reg(6, noise);
+  ch->b2e = 0;
+  
+  z80_write_ay_reg(ch->id + 8, ch->tone ? ch->amplitude : 0);
+  z80_write_ay_reg(2 * ch->id, ch->tone);
+  z80_write_ay_reg(2 * ch->id + 1, ch->tone >> 8);
+}
+
+static void fxm_loop()
+{
+  fxm_play_channel(&channels[0]);
+  fxm_play_channel(&channels[1]);
+  fxm_play_channel(&channels[2]);
+
+  z80_write_ay_reg(7, (channels[2].mixer << 2) | (channels[1].mixer << 1) | channels[0].mixer);
+  for (int i = 13 ; i >= 0 ; --i)
+    send_data(i, ayregs[i]);
 }
 
 void loop()
 {
-  // too slow
-  // emulate();
-
-  // non-translated code
-  z80_init();
-  // translted code
-  Sp = 0xfffe;
+  fxm_init();
   while (1)
   {
-    z80_int();
+    fxm_loop();
     delay(20);
   }
 }
