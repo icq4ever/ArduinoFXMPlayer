@@ -39,14 +39,14 @@ static const char *regs[16] =
 uint8 peek(uint16 addr)
 {
     uint8 res = mem[addr]; 
-//    printf("[%x] -> %x\n", addr, res);
+    printf("%x: [%x] -> %x\n", z80.registers.pc, addr, res);
     return res;
 }
 
 void poke(uint16 addr, uint8 c)
 {
-//    printf("%x: [%x] <- %x\n", z80.registers.pc, addr, c);
-    printf("%X %X\n", addr, c);
+    printf("%x: [%x] <- %x\n", z80.registers.pc, addr, c);
+//    printf("%X %X\n", addr, c);
     mem[addr] = c;
     memtype[addr] = 2;
 }
@@ -59,9 +59,11 @@ IN  (0xfffd)   - Read the value of the selected register
 OUT (0xbffd)   - Write to the selected register
     */
     if (a == 0xfffd)
-        printf("%d: REG %s", time, regs[b]);
+//        printf("%d: REG %s", time, regs[b]);
+        printf("%X ", b);
     else if (a == 0xbffd)
-        printf(" = %d\n", b);
+        printf(" %X\n", b);
+//        printf(" = %d\n", b);
     else
         printf("OUT %x, %x\n", a, b);
 }
@@ -106,7 +108,7 @@ int main(int argc, char **argv)
 
     z80.registers.pc = 0;
     z80.registers.sp = 0x0;
-    int count = 1000000;
+    int count = 10000000;
     while (count)
     {
         count -= z80.run(1);

@@ -1,4 +1,4 @@
-#pragma GCC optimize ("-O3")
+#ifdef TESTING
 /*	Copyright  (c)	Günter Woigk 1996 - 2015
 					mailto:kio@little-bat.de
 
@@ -392,3 +392,4 @@ loop_ei:
 
     return res;
 }
+#endif

@@ -64,14 +64,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\Z80.cpp" />
     <ClCompile Include="Test.cpp" />
+    <ClCompile Include="Z80.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\Z80.h" />
-    <ClInclude Include="..\Z80core.h" />
-    <ClInclude Include="..\Z80macros.h" />
-    <ClInclude Include="..\Z80opcodes.h" />
+    <ClInclude Include="Z80.h" />
+    <ClInclude Include="Z80core.h" />
+    <ClInclude Include="Z80macros.h" />
+    <ClInclude Include="Z80opcodes.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
