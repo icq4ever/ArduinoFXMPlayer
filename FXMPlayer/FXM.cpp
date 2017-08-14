@@ -16,13 +16,13 @@ static uint16_t peek2(uint16_t addr)
   return peek(addr) + (peek(addr + 1) << 8);
 }
 
-static uint8_t ayregs[14];// = {0x4E, 0xA, 0xDD, 0x46, 0xB, 0xA, 0xDD, 0x77, 0x9, 0x3, 0xA, 0x3, 0xDD, 0x77};
+static uint8_t ayregs[14];
 static void z80_write_ay_reg(uint8_t reg, uint8_t val)
 {
   ayregs[reg] = val;
 }
 
-static uint16_t FXM_Table[] = {
+static const uint16_t FXM_Table[] PROGMEM = {
   0xfbf, 0xedc, 0xe07, 0xd3d, 0xc7f, 0xbcc, 0xb22, 0xa82, 0x9eb, 0x95d, 0x8d6, 0x857, 0x7df, 0x76e, 0x703,
   0x69f, 0x640, 0x5e6, 0x591, 0x541, 0x4f6, 0x4ae, 0x46b, 0x42c, 0x3f0, 0x3b7, 0x382, 0x34f, 0x320, 0x2f3,
   0x2c8, 0x2a1, 0x27b, 0x257, 0x236, 0x216, 0x1f8, 0x1dc, 0x1c1, 0x1a8, 0x190, 0x179, 0x164, 0x150, 0x13d,
@@ -176,7 +176,7 @@ static void fxm_play_channel(struct FXMChannel *ch)
           if (v)
           {
             ch->note = v + ch->transposit;
-            ch->tone = FXM_Table[ch->note - 1];
+            ch->tone = pgm_read_word(&FXM_Table[ch->note - 1]);
             ch->b3e = false;
           }
           else
@@ -257,7 +257,7 @@ decode_sample:
         else
         {
           ch->note += s;
-          ch->tone = FXM_Table[ch->note - 1];
+          ch->tone = pgm_read_word(&FXM_Table[ch->note - 1]);
         }
         goto ret;
       }
