@@ -46,7 +46,6 @@ struct FXMChannel
   uint16_t tone;
   uint8_t note;
   uint8_t transposit;
-  uint8_t amplitude;
 
   bool b0e, b1e, b2e, b3e;
 
@@ -217,13 +216,13 @@ decode_sample:
       }
       else if (s < 0x1e)
       {
-        ch->amplitude = s;
+        ch->volume = s;
         ch->sample_tick_counter = peek(ch->point_in_sample++);
       }
       else
       {
         s -= 0x32;
-        ch->amplitude = s;
+        ch->volume = s;
         ch->sample_tick_counter = 1;
       }
       break;
@@ -267,7 +266,7 @@ ret:
   z80_write_ay_reg(6, noise);
   ch->b2e = 0;
   
-  z80_write_ay_reg(ch->id + 8, ch->tone ? ch->amplitude : 0);
+  z80_write_ay_reg(ch->id + 8, ch->tone ? ch->volume & 0xf : 0);
   z80_write_ay_reg(2 * ch->id, ch->tone);
   z80_write_ay_reg(2 * ch->id + 1, ch->tone >> 8);
 }
