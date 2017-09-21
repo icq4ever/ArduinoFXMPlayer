@@ -2334,7 +2334,7 @@ void setup()
 //  fxm_init(master_of_magic);
 //  fxm_init(monty_on_the_run);
 //  fxm_init(piskworks_topgun);
-//  fxm_init(red_dawn);
+  fxm_init(red_dawn);
 //  fxm_init(rendezvous_iv);
 //  fxm_init(space_crusade);
 //  fxm_init(stardragon);
