@@ -21,3 +21,8 @@ available.
 [1]: https://www.youtube.com/watch?v=MTRJdDbY048
 [2]: http://www.florentflament.com/blog/driving-ym2149f-sound-chip-with-an-arduino.html
 [3]: http://www.florentflament.com/blog/arduino-hello-world-without-ide.html
+
+
+## schematic wiring helper
+![wiring](ym2149-arduino-schematic.png)
+![arduino pinout](https://i.stack.imgur.com/dVkQU.jpg)
