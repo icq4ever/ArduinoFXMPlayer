@@ -4,9 +4,9 @@
 The AY-3-8912 sound chip is a widely used one, to be found in the MSX, Vectrex, Amstrad CPC range, etc. It is controlled by two I/O ports:
 
 ```
-OUT (0xfffd)   - Select a register 0-14\
-IN  (0xfffd)   - Read the value of the selected register\
-OUT (0xbffd)   - Write to the selected register\
+OUT (0xfffd)   - Select a register 0-14
+IN  (0xfffd)   - Read the value of the selected register
+OUT (0xbffd)   - Write to the selected register
 ```
 
 ## More information
